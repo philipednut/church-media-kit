@@ -11,7 +11,7 @@ app.use(express.json({ limit: "50kb" }));
 
 const PORT = Number(process.env.PORT || 3000);
 const AUTH_DIR = process.env.AUTH_DIR || "./auth_info_baileys";
-const PAIRING_PHONE = process.env.PAIRING_PHONE || "2348104632231";
+const PAIRING_PHONE = process.env.PAIRING_PHONE || "";
 const GROUP_JIDS = (process.env.WHATSAPP_GROUP_JIDS || "")
   .split(",")
   .map(id => id.trim())
