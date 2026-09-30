@@ -64,7 +64,7 @@ async function requestPairingCode(currentSock, state) {
   }
 
   // Allow the socket time to initialize.
-  await sleep(3000);
+  await sleep(5000);
 
   // Do not request a code from an old or disconnected socket.
   if (sock !== currentSock || !currentSock) {
@@ -123,14 +123,25 @@ async function connectWhatsApp() {
     const { state, saveCreds } =
       await useMultiFileAuthState(AUTH_DIR);
 
+    // const currentSock = makeWASocket({
+    //   auth: state,
+    //   logger,
+    //   browser: ["Church Media Kit", "Chrome", "1.0.0"],
+    //   markOnlineOnConnect: false,
+    //   syncFullHistory: false,
+    //   generateHighQualityLinkPreview: false,
+    // });
+
     const currentSock = makeWASocket({
-      auth: state,
-      logger,
-      browser: ["Church Media Kit", "Chrome", "1.0.0"],
-      markOnlineOnConnect: false,
-      syncFullHistory: false,
-      generateHighQualityLinkPreview: false,
-    });
+  auth: state,
+  logger,
+  connectTimeoutMs: 60000,
+  defaultQueryTimeoutMs: 60000,
+  keepAliveIntervalMs: 15000,
+  markOnlineOnConnect: true,
+  syncFullHistory: false,
+  generateHighQualityLinkPreview: false,
+});
 
     sock = currentSock;
     isConnected = false;
