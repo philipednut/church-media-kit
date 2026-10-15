@@ -13,7 +13,7 @@ import path from "path";
 // ==========================================
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "12mb" }));
 
 const PORT = Number(process.env.PORT || 3000);
 const AUTH_DIR = process.env.AUTH_DIR || "./auth_info_baileys";
@@ -403,6 +403,134 @@ app.post("/send-announcement", async (req, res) => {
     sent: successful,
     failed,
     results,
+  });
+});
+
+
+app.post("/send-bulletin-media", async (req, res) => {
+  if (!sock || !isConnected) {
+    return res.status(503).json({
+      success: false,
+      message: "WhatsApp is not connected."
+    });
+  }
+
+  const {
+    mediaType,
+    mediaBase64,
+    mimeType,
+    fileName,
+    caption
+  } = req.body || {};
+
+  if (!Array.isArray(GROUP_JIDS) || !GROUP_JIDS.length) {
+    return res.status(400).json({
+      success: false,
+      message: "No WhatsApp group JIDs are configured."
+    });
+  }
+
+  if (!["image", "document"].includes(mediaType)) {
+    return res.status(400).json({
+      success: false,
+      message: "mediaType must be image or document."
+    });
+  }
+
+  if (typeof mediaBase64 !== "string" || !mediaBase64.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: "mediaBase64 is required."
+    });
+  }
+
+  const mediaBuffer = Buffer.from(mediaBase64, "base64");
+
+  if (!mediaBuffer.length) {
+    return res.status(400).json({
+      success: false,
+      message: "The media data is empty."
+    });
+  }
+
+  if (mediaBuffer.length > 8 * 1024 * 1024) {
+    return res.status(413).json({
+      success: false,
+      message: "Media exceeds the 8 MB limit."
+    });
+  }
+
+  if (
+    mediaType === "document" &&
+    mimeType &&
+    mimeType !== "application/pdf"
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "This endpoint expects a PDF document."
+    });
+  }
+
+  const currentSock = sock;
+  const results = [];
+
+  for (const jid of GROUP_JIDS) {
+    if (sock !== currentSock || !isConnected) {
+      results.push({
+        group: jid,
+        success: false,
+        error: "WhatsApp connection was interrupted."
+      });
+      break;
+    }
+
+    try {
+      const message = mediaType === "image"
+        ? {
+            image: mediaBuffer,
+            caption: String(caption || "")
+          }
+        : {
+            document: mediaBuffer,
+            mimetype: "application/pdf",
+            fileName: String(
+              fileName || "TOP-Weekly-Bulletin.pdf"
+            ),
+            caption: String(caption || "")
+          };
+
+      await currentSock.sendMessage(jid, message);
+
+      results.push({
+        group: jid,
+        success: true
+      });
+
+      await sleep(1000);
+
+    } catch (error) {
+      console.error(
+        "Bulletin media send failed:",
+        error?.message || error
+      );
+
+      results.push({
+        group: jid,
+        success: false,
+        error: error?.message || "Media sending failed."
+      });
+    }
+  }
+
+  const sent = results.filter(item => item.success).length;
+  const failed = results.filter(item => !item.success).length;
+
+  return res.status(failed === 0 ? 200 : 207).json({
+    success: failed === 0,
+    total: results.length,
+    sent,
+    failed,
+    results
   });
 });
 
